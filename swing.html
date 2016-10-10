@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2016 by kmui2 (http://jsbin.com/pagiwew/11/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html>
+<head>
+<meta name="description" content="[add your bin description]">
+  <meta charset="utf-8">
+  <title>TWGL 101</title>
+  <!-- you need to load TWGL from somewhere -
+    -- this grabs it from the CS server, which
+    -- might take a while
+    -->
+  <canvas id="myCanvas" 
+	   width="400" height="400"
+	   style="border:1px solid #000;">
+  </canvas><br/>
+  <button id="reset" type="button">Reset</button>
+  <button id="strokes" type="button">Toggle Strokes</button>
+  <button id="shading" type="button">Toggle Shading</button>
+  <button id="pattern" type="button">Toggle Pattern</button>
+  <br/>
+  <b>Pan Using Mouse or Sliders Below</b><br/>
+  Y<input id="slider1" type="range" min="-100" max="100" /> <br/>
+  X<input id="slider3" type="range" min="-100" max="100" /> <br/>
+  Rotate Speed<input id="slider2" type="range" min="-10" max="10"/> <br/>
+  <br/><b>Translate</b> <br/>
+  X<input id="sliderX" type="range" min="-100" max="100"/> <br/>
+  Y<input id="sliderY" type="range" min="-100" max="100"/> <br/>
+  Z<input id="sliderZ" type="range" min="-100" max="100"/> <br/>
+  <br/><b>Scale</b> <br/>
+  X<input id="sliderScaleX" type="range" min="0" max="10"/> <br/>
+  Y<input id="sliderScaleY" type="range" min="0" max="10"/> <br/>
+  Z<input id="sliderScaleZ" type="range" min="0" max="10"/> <br/>
+  
+  
+  <script src="https://graphics.cs.wisc.edu/JS/twgl-full.min.js"></script>
+</head>
+<body>
+  Note: Painter's Algorithm is not perfect, so there will be glitches in polygon depth.
+  <br/>
+  Some code borrowed from <a href="http://jsbin.com/jecinupome/1/edit?js,output">here</a>
+<script id="jsbin-javascript">
+function setup() { "use strict";
+  var canvas = document.getElementById('myCanvas');
+  var context = canvas.getContext('2d');
+  var m4 = twgl.m4;
+  var v3 = twgl.v3;                
+  
+
+  var isDown = false; // whether mouse is pressed
+  var startCoords = []; // 'grab' coordinates when pressing mouse
+  var last = [0, 0]; // previous coordinates of mouse release
+  var changeX = 0;
+  var changeY = 0;                
+  var counter = 0;
+  var strokes = true;
+  var shading = true;             
+  var pattern = false;
+  var patternSave;                
+  
+  var toggleStrokes = document.getElementById('strokes');
+  var toggleShading = document.getElementById('shading');
+  var togglePattern = document.getElementById('pattern');
+  var reset = document.getElementById('reset');
+  //**Panning**//                
+  //Y                
+  var slider1 = document.getElementById('slider1');
+  slider1.value = 10;
+  
+  //Rotate
+  var slider2 = document.getElementById('slider2');
+  slider2.value = 1;
+  
+  //X
+  var slider3 = document.getElementById('slider3');
+  slider3.value = -20;
+  
+  //**Translating**//                
+  //X
+  var sliderX = document.getElementById('sliderX');
+  sliderX.value = 0;
+                  
+  //Y
+  var sliderY = document.getElementById('sliderY');
+  sliderY.value = 0;
+                  
+  //Z
+  var sliderZ = document.getElementById('sliderZ');
+  sliderZ.value = 0;
+                  
+  //**Scaling**//                
+  //X
+  var sliderScaleX = document.getElementById('sliderScaleX');
+  sliderScaleX.value = 5;
+                  
+  //Y
+  var sliderScaleY = document.getElementById('sliderScaleY');
+  sliderScaleY.value = 5;
+                  
+  //Z
+  var sliderScaleZ = document.getElementById('sliderScaleZ');
+  sliderScaleZ.value = 1;
+                  
+  var triangles = [];
+
+  function initGeometry(){
+    
+    triangles = [];
+    
+    //top
+    triangles.push([[10,10 + 20/Math.sqrt(2),10],[10,10 + 20/Math.sqrt(2),-10],[-10,10 + 20/Math.sqrt(2),10],"pink",0.0]);
+    triangles.push([[-10,10 + 20/Math.sqrt(2),-10],[-10,10 + 20/Math.sqrt(2),10],[10,10 + 20/Math.sqrt(2),-10],"yellow",0.0]);
+    
+    //right
+    triangles.push([[10 + 20/Math.sqrt(2),-10,-10],[10 + 20/Math.sqrt(2),10,10],[10 + 20/Math.sqrt(2),-10,10],"green",0.0]);
+    triangles.push([[10 + 20/Math.sqrt(2),-10,-10],[10 + 20/Math.sqrt(2),10,-10],[10 + 20/Math.sqrt(2),10,10],"purple",0.0]);
+    
+    //left
+    triangles.push([[-10 - 20/Math.sqrt(2),-10,10],[-10 - 20/Math.sqrt(2),10,10],[-10 - 20/Math.sqrt(2),-10,-10],"red",0.0]);
+    triangles.push([[-10 - 20/Math.sqrt(2),-10,-10],[-10 - 20/Math.sqrt(2),10,10],[-10 - 20/Math.sqrt(2),10,-10],"blue",0.0]);
+    
+    //bottom
+    triangles.push([[10,-10 - 20/Math.sqrt(2),10],[-10,-10 - 20/Math.sqrt(2),10],[10,-10 - 20/Math.sqrt(2),-10],"brown",0.0]);
+    triangles.push([[-10,-10 - 20/Math.sqrt(2),-10],[10,-10 - 20/Math.sqrt(2),-10],[-10,-10 - 20/Math.sqrt(2),10],"black",0.0]);
+    
+    //top right
+    triangles.push([[10,10 + 20/Math.sqrt(2),10],[10 + 20/Math.sqrt(2),10,10],[10,10+ 20/Math.sqrt(2),-10],"orange",0,0]);
+    triangles.push([[10,10 + 20/Math.sqrt(2),-10],[10 + 20/Math.sqrt(2),10,10],[10 + 20/Math.sqrt(2),10,-10],"blue",0,0]);
+    
+    //bottom right
+    triangles.push([[10,-10 - 20/Math.sqrt(2),10],[10,-10- 20/Math.sqrt(2),-10],[10 + 20/Math.sqrt(2),-10,10],"orange",0,0]);
+    triangles.push([[10,-10 - 20/Math.sqrt(2),-10],[10 + 20/Math.sqrt(2),-10,-10],[10 + 20/Math.sqrt(2),-10,10],"blue",0,0]);
+    
+    //bottom left
+    triangles.push([[-10,-10 - 20/Math.sqrt(2),10],[-10 - 20/Math.sqrt(2),-10,10],[-10,-10- 20/Math.sqrt(2),-10],"orange",0,0]);
+    triangles.push([[-10,-10 - 20/Math.sqrt(2),-10],[-10 - 20/Math.sqrt(2),-10,10],[-10 - 20/Math.sqrt(2),-10,-10],"blue",0,0]);
+    
+    //top left
+    triangles.push([[-10,10 + 20/Math.sqrt(2),10],[-10,10+ 20/Math.sqrt(2),-10],[-10 - 20/Math.sqrt(2),10,10],"orange",0,0]);
+    triangles.push([[-10,10 + 20/Math.sqrt(2),-10],[-10 - 20/Math.sqrt(2),10,-10],[-10 - 20/Math.sqrt(2),10,10],"blue",0,0]);
+    
+    
+    
+    
+    
+    
+    
+    //front
+    triangles.push([[-10,10,10],[10,-10,10],[10,10,10],"indigo",0.0]);
+    triangles.push([[-10,10,10],[-10,-10,10],[10,-10,10],"crimson",0.0]);
+    
+    //front top right
+    triangles.push([[10,10+20/Math.sqrt(2),10],[10,10,10],[10+20/Math.sqrt(2),10,10],"crimson",0.0])
+    //front top left
+    triangles.push([[-10,10+20/Math.sqrt(2),10],[-10-20/Math.sqrt(2),10,10],[-10,10,10],"indigo",0.0])
+    
+    //front top
+    triangles.push([[-10,10+20/Math.sqrt(2),10],[10,10,10],[10,10+20/Math.sqrt(2),10],"indigo",0.0]);
+    triangles.push([[-10,10+20/Math.sqrt(2),10],[-10,10,10],[10,10,10],"crimson",0.0]);
+    //front bottom
+    triangles.push([[-10,-10-20/Math.sqrt(2),10],[10,-10-20/Math.sqrt(2),10],[10,-10,10],"indigo",0.0]);
+    triangles.push([[-10,-10-20/Math.sqrt(2),10],[10,-10,10],[-10,-10,10],"crimson",0.0]);
+    
+    
+    //front bottom right
+    triangles.push([[10,-10-20/Math.sqrt(2),10],[10+20/Math.sqrt(2),-10,10],[10,-10,10],"crimson",0.0])
+    //front bottom left
+    triangles.push([[-10,-10-20/Math.sqrt(2),10],[-10,-10,10],[-10-20/Math.sqrt(2),-10,10],"indigo",0.0])
+    
+    //front left
+    triangles.push([[-10-20/Math.sqrt(2),10,10],[-10,-10,10],[-10,10,10],"indigo",0.0]);
+    triangles.push([[-10-20/Math.sqrt(2),10,10],[-10-20/Math.sqrt(2),-10,10],[-10,-10,10],"crimson",0.0]);
+    //front left
+    triangles.push([[10+20/Math.sqrt(2),10,10],[10,10,10],[10,-10,10],"indigo",0.0]);
+    triangles.push([[10+20/Math.sqrt(2),10,10],[10,-10,10],[10+20/Math.sqrt(2),-10,10],"crimson",0.0]);
+    
+    
+    
+    
+    
+    
+    
+    //back
+    triangles.push([[-10,10,-10],[10,10,-10],[10,-10,-10],"orange",0.0]);
+    triangles.push([[-10,10,-10],[10,-10,-10],[-10,-10,-10],"grey",0.0]);
+    
+    
+    //back top left
+    triangles.push([[10,10+20/Math.sqrt(2),-10],[10+20/Math.sqrt(2),10,-10],[10,10,-10],"grey",0.0])
+    //back top right
+    triangles.push([[-10,10+20/Math.sqrt(2),-10],[-10,10,-10],[-10-20/Math.sqrt(2),10,-10],"orange",0.0])
+    
+    //back top
+    triangles.push([[-10,10+20/Math.sqrt(2),-10],[10,10+20/Math.sqrt(2),-10],[10,10,-10],"orange",0.0]);
+    triangles.push([[-10,10+20/Math.sqrt(2),-10],[10,10,-10],[-10,10,-10],"grey",0.0]);
+    //back bottom
+    triangles.push([[-10,-10-20/Math.sqrt(2),-10],[10,-10,-10],[10,-10-20/Math.sqrt(2),-10],"orange",0.0]);
+    triangles.push([[-10,-10-20/Math.sqrt(2),-10],[-10,-10,-10],[10,-10,-10],"grey",0.0]);
+    
+    
+    //bottom right
+    triangles.push([[10,-10-20/Math.sqrt(2),-10],[10,-10,-10],[10+20/Math.sqrt(2),-10,-10],"grey",0.0])
+    //bottom left
+    triangles.push([[-10,-10-20/Math.sqrt(2),-10],[-10-20/Math.sqrt(2),-10,-10],[-10,-10,-10],"orange",0.0])
+    
+    //back right
+    triangles.push([[-10-20/Math.sqrt(2),10,-10],[-10,10,-10],[-10,-10,-10],"orange",0.0]);
+    triangles.push([[-10-20/Math.sqrt(2),10,-10],[-10,-10,-10],[-10-20/Math.sqrt(2),-10,-10],"grey",0.0]);
+    //back left
+    triangles.push([[10+20/Math.sqrt(2),10,-10],[10,-10,-10],[10,10,-10],"orange",0.0]);
+    triangles.push([[10+20/Math.sqrt(2),10,-10],[10+20/Math.sqrt(2),-10,-10],[10,-10,-10],"grey",0.0]);
+    
+  }
+                  
+  function moveToTx(x,y,z,Tx) {
+    var loc = [x,y,z];
+    var locTx = m4.transformPoint(Tx,loc);
+    context.moveTo(locTx[0],locTx[1]);
+  }
+
+  function lineToTx(x,y,z,Tx) {
+    var loc = [x,y,z];
+    var locTx = m4.transformPoint(Tx,loc);
+    context.lineTo(locTx[0],locTx[1]);
+  }
+                
+
+  function drawTriangle(triangle,Tx){
+     context.beginPath();
+     context.fillStyle=triangle[3];
+     moveToTx(triangle[0][0],triangle[0][1],triangle[0][2],Tx); 
+     lineToTx(triangle[1][0],triangle[1][1],triangle[1][2],Tx); 
+     lineToTx(triangle[2][0],triangle[2][1],triangle[2][2],Tx); 
+     context.closePath(); 
+     context.fill();
+     if (strokes)
+       context.stroke();
+  }
+
+  function drawScene(Tx,translate,scale) {
+    
+    triangles.sort(function(a, b){
+      var aLocTxZ = (m4.transformPoint(Tx,[a[0][0],a[0][1],a[0][2]])[2] +
+                    m4.transformPoint(Tx,[a[1][0],a[1][1],a[1][2]])[2] +
+                    m4.transformPoint(Tx,[a[2][0],a[2][1],a[2][2]])[2]);
+      
+      
+      var bLocTxZ = (m4.transformPoint(Tx,[b[0][0],b[0][1],b[0][2]])[2] +
+                    m4.transformPoint(Tx,[b[1][0],b[1][1],b[1][2]])[2] +
+                    m4.transformPoint(Tx,[b[2][0],b[2][1],b[2][2]])[2]);
+      
+      return bLocTxZ-aLocTxZ;
+      
+    });
+    for(var i=0;i<triangles.length;i++) {
+      var temp0 = triangles[i][0][2];
+      var temp1 = triangles[i][1][2];
+      var temp2 = triangles[i][2][2];
+      triangles[i][0][2]=(triangles[i][0][2]*scale[2]) + translate[2];
+      triangles[i][1][2]=(triangles[i][1][2]*scale[2]) + translate[2];
+      triangles[i][2][2]=(triangles[i][2][2]*scale[2]) + translate[2];
+       drawTriangle(triangles[i],Tx);
+      triangles[i][0][2]=temp0;
+      triangles[i][1][2]=temp1;
+      triangles[i][2][2]=temp2;
+      
+    }
+  }
+                  
+                  
+  function createT (translate, scale, angle1,angle2,angle3) {
+    var axis = [0,0,1];
+    var Tmodel=m4.axisRotation(axis,angle2);
+    
+    var eye=[700*Math.sin(angle1),700*angle3,700*Math.cos(angle1)];
+    var target=[0,0,0];
+    var up=[0,1,0];
+    var Tcamera=m4.inverse(m4.lookAt(eye,target,up));
+
+    var Tprojection=m4.ortho(-250,250,-200,300,-2,2);
+    
+    var Tfix = m4.translation([0,0.2,0]);
+    var Tviewport=m4.multiply(m4.multiply(Tfix,m4.scaling([200*scale[0],200*scale[1],200*scale[2]])),m4.translation(translate));
+    
+    return [Tmodel,Tcamera,Tprojection,Tviewport];
+  }
+   
+  function drawAxes(xAngle,yAngle) {
+    var T = createT([200,200,0],[1,1,1],yAngle,0,xAngle);
+    var Tmodel = T[0];
+    var Tcamera = T[1]; 
+    var Tprojection = T[2];
+    var Tviewport = T[3];
+    
+    var Tcpv=m4.multiply(m4.multiply(Tcamera,Tprojection),Tviewport);
+    
+    // A little cross on the front face, for identification
+    //moveToTx(0,0,0,Tcpv);lineToTx(100,0,0,Tcpv);context.stroke();
+    moveToTx(0,-300,0,Tcpv);lineToTx(0,300,0,Tcpv);context.stroke();
+    //moveToTx(0,0,0,Tcpv);lineToTx(0,0,200,Tcpv);context.stroke();
+  }
+                  
+  function drawCylinder(translate, scale, xAngle, yAngle, rotateAngle){
+    
+    
+    var T = createT(translate,scale,yAngle,rotateAngle,xAngle);
+    var Tmodel = T[0];
+    var Tcamera = T[1];
+    var Tprojection = T[2];
+    var Tviewport = T[3];
+    
+    var Tcpv=m4.multiply(m4.multiply(Tcamera,Tprojection),Tviewport);
+    var Tmc=m4.multiply(Tmodel,Tcamera)
+    var Tmcp=m4.multiply(m4.multiply(Tmodel,Tcamera),Tprojection);
+    var Tmcpv=m4.multiply(Tmodel,Tcpv);
+    if (!pattern)
+      for(var i=0;i<triangles.length;i++){
+        var cam1=m4.transformPoint(Tmc,triangles[i][0]);
+        var cam2=m4.transformPoint(Tmc,triangles[i][1]);
+        var cam3=m4.transformPoint(Tmc,triangles[i][2]);
+      
+        //cam2,cam1 not cam2-cam1
+        var v = v3.subtract(cam2,cam1);
+        var w = v3.subtract(cam3,cam1);
+      
+        var normal = v3.normalize(v3.cross(v,w));
+      
+        var dot = v3.dot(normal,[0,4,5]);
+      
+        var light = dot*49+100;
+        if (shading)
+          //only shades with red
+          triangles[i][3]="rgb(0,"+Math.floor(light)+","+Math.floor(light)+")";
+        else
+          triangles[i][3]="rgb(0,255,255)";
+      }
+    else
+      initGeometry();
+    drawScene(Tmcpv,translate,scale);
+  }                
+
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+  function draw() {
+    // hack to clear the canvas fast
+    canvas.width = canvas.width;
+    
+    var translate = [sliderX.value*1+200,sliderY.value*1+200,sliderZ.value*1];
+    var scale = [sliderScaleX.value,-sliderScaleY.value,sliderScaleZ.value];
+    var xAngle = (changeY*0.5)*0.01*Math.PI + slider1.value*0.01*Math.PI;
+    var yAngle = (changeX*0.5)*0.01*Math.PI + slider3.value*0.01*Math.PI;
+    var rotateAngle = -slider2.value*counter*0.01*Math.PI,xAngle;
+    
+    drawCylinder(translate,scale,xAngle,yAngle,rotateAngle);
+    
+    //update
+    counter+=0.5;
+    //console.log(counter);
+    window.requestAnimationFrame(draw);
+  }
+
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+                  
+reset.addEventListener('click', function(event) {
+
+    slider1.value = 10;
+    slider2.value = 1;
+    slider3.value =-10;
+    sliderX.value =0;
+    sliderY.value=0;
+    sliderZ.value=0;
+    sliderScaleX.value=5;
+    sliderScaleY.value=5;
+    sliderScaleZ.value=1;}
+                  );                  
+                  
+toggleStrokes.addEventListener('click', function(event) {
+
+    if (strokes)
+      strokes = false;
+      else
+        strokes = true;}
+                  );
+                  
+toggleShading.addEventListener('click', function(event) {
+
+    if (shading)
+      shading = false;
+      else
+        shading = true;}
+                  );                  
+
+togglePattern.addEventListener('click', function(event) {
+
+    if (pattern)
+      pattern = false;
+      else
+        pattern = true;}
+                  );                         
+                  
+                        
+canvas.onmousedown = function(e) {
+    isDown = true;
+    startCoords = [
+        e.offsetX - last[0], // set start coordinates
+        e.offsetY - last[1]
+   ];
+};
+
+canvas.onmouseup   = function(e) {
+    isDown = false;
+    last = [
+        e.offsetX - startCoords[0], // set last coordinates
+        e.offsetY - startCoords[1]
+    ];
+};
+
+canvas.onmousemove = function(e) {
+    if(!isDown) return; // don't pan if mouse is not pressed
+    var x = e.offsetX;
+    var y = e.offsetY;
+    
+    changeX = startCoords[0]-x;
+    changeY= y-startCoords[1];
+}
+  initGeometry();
+  draw();
+
+}
+window.onload = setup;
+
+
+
+</script>
+</body>
+</html>
